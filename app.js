@@ -451,6 +451,8 @@ function renderWeekly() {
 }
 
 // ====== CHART ======
+let chartInstance = null;
+
 function renderChart(mode) {
   state.chartMode = mode;
   const labels = state.hourly.slice(0, 24).map(h => formatHour(h.time));
