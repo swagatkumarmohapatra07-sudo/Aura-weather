@@ -206,24 +206,33 @@ async function fetchWeatherByCoords(lat, lon, city, country) {
   state.coords = { lat, lon }; state.city = city; state.country = country;
   showLoading(true);
 
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility,is_day&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
 
-  const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone,uv_index&timezone=auto`;
+  const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`;
 
   try {
-    const [weatherRes, aqiRes] = await Promise.all([fetch(weatherUrl), fetch(aqiUrl)]);
-    if (!weatherRes.ok) throw Error('Weather fetch failed');
+    const weatherRes = await fetch(weatherUrl);
+    if (!weatherRes.ok) {
+      const errText = await weatherRes.text().catch(() => '');
+      throw new Error(`Weather API returned ${weatherRes.status}: ${errText}`);
+    }
     const wd = await weatherRes.json();
+
     let aqiData = null;
-    if (aqiRes.ok) aqiData = await aqiRes.json();
+    try {
+      const aqiRes = await fetch(aqiUrl);
+      if (aqiRes.ok) aqiData = await aqiRes.json();
+    } catch (aqiErr) {
+      console.warn('AQI fetch failed (non-fatal):', aqiErr);
+    }
 
     state.weather = wd; state.aqi = aqiData;
     processWeatherData(wd);
     renderAll();
     showLoading(false);
   } catch (e) {
-    console.error(e);
-    $('loadingWrap').innerHTML = `<div class="glass" style="padding:32px;text-align:center;color:var(--muted)"><p>Failed to load weather data. Check your connection and try again.</p><button onclick="detectLocation()" style="margin-top:12px;padding:8px 20px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);cursor:pointer">Retry</button></div>`;
+    console.error('Weather fetch error:', e);
+    $('loadingWrap').innerHTML = `<div class="glass" style="padding:32px;text-align:center;color:var(--muted)"><p>⚠️ Failed to load weather data.</p><p style="font-size:12px;margin-top:6px;color:var(--muted)">${e.message}</p><button onclick="detectLocation()" style="margin-top:12px;padding:8px 20px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);cursor:pointer">Retry</button></div>`;
   }
 }
 
