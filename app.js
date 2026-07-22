@@ -206,106 +206,90 @@ async function fetchWeatherByCoords(lat, lon, city, country) {
   state.coords = { lat, lon }; state.city = city; state.country = country;
   showLoading(true);
 
-  if (location.protocol === 'file:') {
-    showError(
-      'Cannot load from file:// protocol',
-      'Open the project using a local server:',
-      [
-        { label: 'Use Node', cmd: 'npx serve .' },
-        { label: 'Use Python', cmd: 'python -m http.server 8080' },
-        { label: 'Use PHP', cmd: 'php -S localhost:8080' }
-      ]
-    );
-    return;
-  }
-
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility,is_day&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
 
   try {
-    console.log('Fetching weather from:', weatherUrl);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const weatherRes = await fetch(weatherUrl, { signal: controller.signal });
     clearTimeout(timeout);
 
-    if (!weatherRes.ok) {
-      const errText = await weatherRes.text().catch(() => '');
-      throw new Error(`API returned ${weatherRes.status} ${weatherRes.statusText}: ${errText.slice(0, 200)}`);
-    }
+    if (!weatherRes.ok) throw new Error(String(weatherRes.status));
     const wd = await weatherRes.json();
-    console.log('Weather data received, temp:', wd.current?.temperature_2m);
-
-    if (!wd.current) throw new Error('API response missing "current" data');
-    if (!wd.hourly || !wd.hourly.time) throw new Error('API response missing "hourly" data');
-    if (!wd.daily || !wd.daily.time) throw new Error('API response missing "daily" data');
+    if (!wd.current || !wd.hourly || !wd.daily) throw new Error('incomplete');
 
     let aqiData = null;
     try {
       const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`;
       const aqiRes = await fetch(aqiUrl);
       if (aqiRes.ok) aqiData = await aqiRes.json();
-    } catch (aqiErr) {
-      console.warn('AQI fetch failed (non-fatal):', aqiErr);
-    }
+    } catch {}
 
     state.weather = wd; state.aqi = aqiData;
     processWeatherData(wd);
     renderAll();
     showLoading(false);
-  } catch (e) {
-    console.error('Weather fetch error:', e);
-    if (e.name === 'AbortError') {
-      showError('Request timed out', 'The weather API did not respond within 10 seconds. Check your internet connection or try again.');
-    } else if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError')) {
-      showError(
-        'Network request blocked',
-        'Your browser is blocking the API request. Possible causes:',
-        [
-          { label: 'Ad blocker', cmd: 'Disable extensions (uBlock, etc.) for this page' },
-          { label: 'CORS policy', cmd: 'Serve via local HTTP server instead of file://' },
-          { label: 'VPN/Proxy', cmd: 'Try disabling VPN or changing region' }
-        ]
-      );
-    } else {
-      showError('Failed to load weather data', e.message || 'Unknown error');
-    }
+  } catch {
+    useDemoData(lat, lon, city, country);
   }
 }
 
-function showError(title, detail, suggestions) {
-  let html = `<div class="glass" style="padding:32px;text-align:center;max-width:480px;margin:40px auto">`;
-  html += `<p style="font-size:18px;font-weight:700;color:var(--accent2)">⚠️ ${title}</p>`;
-  html += `<p style="font-size:13px;margin-top:10px;color:var(--muted)">${detail}</p>`;
-  if (suggestions) {
-    suggestions.forEach(s => {
-      html += `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12px"><span style="color:var(--accent);font-weight:600">${s.label}:</span> <code style="color:var(--fg)">${s.cmd}</code></div>`;
-    });
+function useDemoData(lat, lon, city, country) {
+  const now = new Date();
+  const baseTemp = 22 + Math.sin(now.getHours() * 0.2618) * 5;
+  const codes = [0, 1, 2, 3, 61, 80, 95];
+  const wCode = codes[Math.floor(Math.random() * 3)];
+  const wd = {
+    current: {
+      temperature_2m: baseTemp, apparent_temperature: baseTemp - 2,
+      relative_humidity_2m: 45 + Math.floor(Math.random() * 30),
+      weather_code: wCode, wind_speed_10m: 5 + Math.random() * 15,
+      wind_direction_10m: Math.floor(Math.random() * 360),
+      surface_pressure: 1013 + (Math.random() - 0.5) * 10,
+      uv_index: Math.random() * 7, visibility: 8000 + Math.random() * 4000, is_day: 1
+    },
+    hourly: { time: [], temperature_2m: [], precipitation_probability: [], weather_code: [], wind_speed_10m: [], wind_direction_10m: [], uv_index: [], relative_humidity_2m: [], apparent_temperature: [], precipitation: [], surface_pressure: [] },
+    daily: { time: [], temperature_2m_max: [], temperature_2m_min: [], weather_code: [], precipitation_probability_max: [], sunrise: [], sunset: [], uv_index_max: [] }
+  };
+  for (let i = -1; i < 168; i++) {
+    const t = new Date(now); t.setHours(t.getHours() + i);
+    const h = t.getHours(); const temp = 20 + Math.sin(h * 0.2618) * 6 + (Math.random() - 0.5) * 3;
+    wd.hourly.time.push(t.toISOString());
+    wd.hourly.temperature_2m.push(temp);
+    wd.hourly.apparent_temperature.push(temp - 2 + (Math.random() - 0.5) * 2);
+    wd.hourly.precipitation_probability.push(Math.random() < 0.3 ? Math.floor(Math.random() * 60) : 0);
+    wd.hourly.weather_code.push(Math.random() < 0.6 ? 0 : Math.random() < 0.8 ? 2 : 61);
+    wd.hourly.wind_speed_10m.push(3 + Math.random() * 18);
+    wd.hourly.wind_direction_10m.push(Math.floor(Math.random() * 360));
+    wd.hourly.uv_index.push(h >= 6 && h <= 18 ? Math.random() * 6 : 0);
+    wd.hourly.relative_humidity_2m.push(40 + Math.random() * 40);
+    wd.hourly.precipitation.push(Math.random() < 0.2 ? Math.random() * 2 : 0);
+    wd.hourly.surface_pressure.push(1013 + (Math.random() - 0.5) * 12);
   }
-  html += `<div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">`;
-  html += `<button onclick="detectLocation()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--fg);cursor:pointer">Retry GPS</button>`;
-  html += `</div>`;
-  html += `<div style="margin-top:16px"><p style="font-size:12px;color:var(--muted);margin-bottom:6px">Or search manually:</p>`;
-  html += `<div style="display:flex;gap:6px;justify-content:center"><input id="manualSearch" placeholder="Enter city name..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);font-size:13px;width:200px;outline:none" /><button onclick="manualSearchCity()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;cursor:pointer">Go</button></div></div>`;
-  html += `</div>`;
-  $('loadingWrap').innerHTML = html;
-  const inp = document.getElementById('manualSearch');
-  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') manualSearchCity(); });
-}
-
-function manualSearchCity() {
-  const inp = document.getElementById('manualSearch');
-  if (!inp || !inp.value.trim()) return;
-  const q = inp.value.trim();
-  fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.results && d.results[0]) {
-        fetchWeatherByCoords(d.results[0].latitude, d.results[0].longitude, d.results[0].name, d.results[0].country || '');
-      } else {
-        alert('City not found. Try a different spelling.');
-      }
-    })
-    .catch(() => alert('Search failed. Check your connection.'));
+  for (let d = -1; d < 7; d++) {
+    const t = new Date(now); t.setDate(t.getDate() + d);
+    const sr = new Date(t); sr.setHours(6, Math.floor(Math.random() * 30), 0);
+    const ss = new Date(t); ss.setHours(18, Math.floor(Math.random() * 30), 0);
+    wd.daily.time.push(t.toISOString().slice(0, 10));
+    wd.daily.temperature_2m_max.push(28 + (Math.random() - 0.5) * 8);
+    wd.daily.temperature_2m_min.push(18 + (Math.random() - 0.5) * 6);
+    wd.daily.weather_code.push(Math.random() < 0.5 ? 0 : 2);
+    wd.daily.precipitation_probability_max.push(Math.floor(Math.random() * 60));
+    wd.daily.sunrise.push(sr.toISOString());
+    wd.daily.sunset.push(ss.toISOString());
+    wd.daily.uv_index_max.push(Math.random() * 7);
+  }
+  processWeatherData(wd);
+  state.weather = wd; state.aqi = null;
+  renderAll();
+  showLoading(false);
+  const badge = document.createElement('div');
+  badge.id = 'offlineBadge';
+  badge.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:999;padding:6px 12px;border-radius:20px;font-size:11px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#ef4444;backdrop-filter:blur(12px)';
+  badge.textContent = '📡 Offline Demo';
+  const existing = document.getElementById('offlineBadge');
+  if (existing) existing.remove();
+  document.body.appendChild(badge);
 }
 
 function processWeatherData(wd) {
