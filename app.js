@@ -206,20 +206,42 @@ async function fetchWeatherByCoords(lat, lon, city, country) {
   state.coords = { lat, lon }; state.city = city; state.country = country;
   showLoading(true);
 
+  if (location.protocol === 'file:') {
+    showError(
+      'Cannot load from file:// protocol',
+      'Open the project using a local server:',
+      [
+        { label: 'Use Node', cmd: 'npx serve .' },
+        { label: 'Use Python', cmd: 'python -m http.server 8080' },
+        { label: 'Use PHP', cmd: 'php -S localhost:8080' }
+      ]
+    );
+    return;
+  }
+
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility,is_day&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
 
-  const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`;
-
   try {
-    const weatherRes = await fetch(weatherUrl);
+    console.log('Fetching weather from:', weatherUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const weatherRes = await fetch(weatherUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!weatherRes.ok) {
       const errText = await weatherRes.text().catch(() => '');
-      throw new Error(`Weather API returned ${weatherRes.status}: ${errText}`);
+      throw new Error(`API returned ${weatherRes.status} ${weatherRes.statusText}: ${errText.slice(0, 200)}`);
     }
     const wd = await weatherRes.json();
+    console.log('Weather data received, temp:', wd.current?.temperature_2m);
+
+    if (!wd.current) throw new Error('API response missing "current" data');
+    if (!wd.hourly || !wd.hourly.time) throw new Error('API response missing "hourly" data');
+    if (!wd.daily || !wd.daily.time) throw new Error('API response missing "daily" data');
 
     let aqiData = null;
     try {
+      const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`;
       const aqiRes = await fetch(aqiUrl);
       if (aqiRes.ok) aqiData = await aqiRes.json();
     } catch (aqiErr) {
@@ -232,37 +254,63 @@ async function fetchWeatherByCoords(lat, lon, city, country) {
     showLoading(false);
   } catch (e) {
     console.error('Weather fetch error:', e);
-    $('loadingWrap').innerHTML = `<div class="glass" style="padding:32px;text-align:center;color:var(--muted)"><p>⚠️ Failed to load weather data.</p><p style="font-size:12px;margin-top:6px;color:var(--muted)">${e.message}</p><button onclick="detectLocation()" style="margin-top:12px;padding:8px 20px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);cursor:pointer">Retry</button></div>`;
+    if (e.name === 'AbortError') {
+      showError('Request timed out', 'The weather API did not respond within 10 seconds. Check your internet connection or try again.');
+    } else if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError')) {
+      showError(
+        'Network request blocked',
+        'Your browser is blocking the API request. Possible causes:',
+        [
+          { label: 'Ad blocker', cmd: 'Disable extensions (uBlock, etc.) for this page' },
+          { label: 'CORS policy', cmd: 'Serve via local HTTP server instead of file://' },
+          { label: 'VPN/Proxy', cmd: 'Try disabling VPN or changing region' }
+        ]
+      );
+    } else {
+      showError('Failed to load weather data', e.message || 'Unknown error');
+    }
   }
 }
 
+function showError(title, detail, suggestions) {
+  let html = `<div class="glass" style="padding:32px;text-align:center;max-width:480px;margin:40px auto">`;
+  html += `<p style="font-size:18px;font-weight:700;color:var(--accent2)">⚠️ ${title}</p>`;
+  html += `<p style="font-size:13px;margin-top:10px;color:var(--muted)">${detail}</p>`;
+  if (suggestions) {
+    suggestions.forEach(s => {
+      html += `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12px"><span style="color:var(--accent);font-weight:600">${s.label}:</span> <code style="color:var(--fg)">${s.cmd}</code></div>`;
+    });
+  }
+  html += `<button onclick="detectLocation()" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;cursor:pointer">Retry</button>`;
+  html += `</div>`;
+  $('loadingWrap').innerHTML = html;
+}
+
 function processWeatherData(wd) {
-  const cu = wd.current; const h = wd.hourly; const d = wd.daily;
+  const cu = wd.current || {}; const h = wd.hourly || {}; const d = wd.daily || {};
   state.current = {
-    temp: cu.temperature_2m, feels: cu.apparent_temperature,
-    humidity: cu.relative_humidity_2m, wind: cu.wind_speed_10m,
-    windDir: cu.wind_direction_10m, pressure: cu.surface_pressure,
-    uv: cu.uv_index, visibility: cu.visibility,
-    code: cu.weather_code, isDay: cu.is_day || 1
+    temp: cu.temperature_2m ?? 0, feels: cu.apparent_temperature ?? 0,
+    humidity: cu.relative_humidity_2m ?? 0, wind: cu.wind_speed_10m ?? 0,
+    windDir: cu.wind_direction_10m ?? 0, pressure: cu.surface_pressure ?? 1013,
+    uv: cu.uv_index ?? 0, visibility: cu.visibility ?? 10000,
+    code: cu.weather_code ?? 0, isDay: cu.is_day ?? 1
   };
-  state.hourly = h.time.map((t, i) => ({
-    time: t, temp: h.temperature_2m[i], precip: h.precipitation_probability[i],
-    code: h.weather_code[i], wind: h.wind_speed_10m[i],
-    windDir: h.wind_direction_10m[i], uv: h.uv_index[i], humidity: h.relative_humidity_2m[i],
-    feels: h.apparent_temperature[i], pressure: h.surface_pressure ? h.surface_pressure[i] : null,
+  state.hourly = (h.time || []).map((t, i) => ({
+    time: t, temp: (h.temperature_2m || [])[i] ?? 0, precip: (h.precipitation_probability || [])[i] ?? 0,
+    code: (h.weather_code || [])[i] ?? 0, wind: (h.wind_speed_10m || [])[i] ?? 0,
+    windDir: (h.wind_direction_10m || [])[i] ?? 0, uv: (h.uv_index || [])[i] ?? 0,
+    humidity: (h.relative_humidity_2m || [])[i] ?? 0,
+    feels: (h.apparent_temperature || [])[i] ?? 0, pressure: (h.surface_pressure || [])[i] ?? null,
     isDay: new Date(t).getHours() >= 6 && new Date(t).getHours() < 18 ? 1 : 0
   }));
-  state.daily = d.time.map((t, i) => ({
-    time: t, tempMax: d.temperature_2m_max[i], tempMin: d.temperature_2m_min[i],
-    code: d.weather_code[i], precip: d.precipitation_probability_max[i],
-    sunrise: d.sunrise[i], sunset: d.sunset[i], uv: d.uv_index_max[i]
+  state.daily = (d.time || []).map((t, i) => ({
+    time: t, tempMax: (d.temperature_2m_max || [])[i] ?? 0, tempMin: (d.temperature_2m_min || [])[i] ?? 0,
+    code: (d.weather_code || [])[i] ?? 0, precip: (d.precipitation_probability_max || [])[i] ?? 0,
+    sunrise: (d.sunrise || [])[i] ?? '', sunset: (d.sunset || [])[i] ?? '', uv: (d.uv_index_max || [])[i] ?? 0
   }));
   if (state.aqi && state.aqi.current) {
-    state.aqiData = {
-      aqi: state.aqi.current.european_aqi,
-      pm25: state.aqi.current.pm2_5, pm10: state.aqi.current.pm10,
-      no2: state.aqi.current.nitrogen_dioxide, o3: state.aqi.current.ozone
-    };
+    const a = state.aqi.current;
+    state.aqiData = { aqi: a.european_aqi, pm25: a.pm2_5, pm10: a.pm10, no2: a.nitrogen_dioxide, o3: a.ozone };
   }
 }
 
