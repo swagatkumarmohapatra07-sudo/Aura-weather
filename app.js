@@ -281,9 +281,31 @@ function showError(title, detail, suggestions) {
       html += `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12px"><span style="color:var(--accent);font-weight:600">${s.label}:</span> <code style="color:var(--fg)">${s.cmd}</code></div>`;
     });
   }
-  html += `<button onclick="detectLocation()" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;cursor:pointer">Retry</button>`;
+  html += `<div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">`;
+  html += `<button onclick="detectLocation()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--fg);cursor:pointer">Retry GPS</button>`;
+  html += `</div>`;
+  html += `<div style="margin-top:16px"><p style="font-size:12px;color:var(--muted);margin-bottom:6px">Or search manually:</p>`;
+  html += `<div style="display:flex;gap:6px;justify-content:center"><input id="manualSearch" placeholder="Enter city name..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);font-size:13px;width:200px;outline:none" /><button onclick="manualSearchCity()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;cursor:pointer">Go</button></div></div>`;
   html += `</div>`;
   $('loadingWrap').innerHTML = html;
+  const inp = document.getElementById('manualSearch');
+  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') manualSearchCity(); });
+}
+
+function manualSearchCity() {
+  const inp = document.getElementById('manualSearch');
+  if (!inp || !inp.value.trim()) return;
+  const q = inp.value.trim();
+  fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.results && d.results[0]) {
+        fetchWeatherByCoords(d.results[0].latitude, d.results[0].longitude, d.results[0].name, d.results[0].country || '');
+      } else {
+        alert('City not found. Try a different spelling.');
+      }
+    })
+    .catch(() => alert('Search failed. Check your connection.'));
 }
 
 function processWeatherData(wd) {
