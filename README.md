@@ -7,29 +7,34 @@ A modern, full-featured weather web application with a frosted glassmorphism UI,
 - **Live Weather Data** — Powered by the free [Open-Meteo API](https://open-meteo.com/) (no API key needed)
 - **Current Conditions** — Temperature, "feels like", high/low, weather condition with WMO code mapping
 - **AI Insight Box** — Dynamic smart summary based on weather parameters (UV, wind, rain, temperature)
-- **Glassmorphism UI** — Frosted glass cards with `backdrop-blur`, translucent surfaces, subtle borders
+- **Red & Blue Glassmorphism UI** — Dual-tone frosted glass cards with `backdrop-blur(24px)`, red-tinted and blue-tinted glass variants, gradient accents
 - **Dynamic Backgrounds** — Background gradients that shift based on weather:
   - ☀️ Sunny — Warm golden hour tones
   - 🌧️ Rain — Deep charcoal with blue accents
   - ❄️ Snow — Cool cyan-gray
   - 🌙 Night — Midnight violet
   - ☁️ Cloudy — Muted slate
-- **7 Metric Cards**
+- **Animated Weather Loading** — Animated scene with rotating sun, drifting clouds, and falling rain while data loads
+- **8 Metric Cards**
   - Wind Speed & Direction (animated compass needle)
   - Humidity (SVG progress ring)
   - UV Index (color-coded severity scale)
   - Air Quality Index (with primary pollutant readout)
-  - Atmospheric Pressure
+  - Atmospheric Pressure (with trend sparkline and arrow indicator)
   - Visibility
   - Sunrise / Sunset arc visualization
-- **24-Hour Forecast** — Horizontal scrollable hourly slider with temp, precipitation chance, and icons
+  - Moon Phase (with illumination %, phase name, and age)
+- **24-Hour Forecast** — Horizontal scrollable hourly slider with temp, precipitation chance, icons, and precipitation intensity bars
 - **7-Day Forecast** — Vertical list with temperature range bars
-- **Interactive Charts** — Toggleable line charts for Temperature vs Feels Like, Precipitation %, and Wind Speed (powered by Chart.js)
-- **City Search** — Debounced autocomplete via Open-Meteo Geocoding API
+- **Interactive Charts** — 5 toggleable modes: Temperature vs Feels Like, Precipitation %, Wind Speed, Humidity, UV Index (powered by Chart.js)
+- **Activity Scoring Engine** — "Best Time To" feature: pick Running, Cycling, Photo, or Star Gaze and get the optimal 3-hour window in the next 24h with weather suitability score
+- **Weather Animations** — Live animated rain streaks and snowfall particles overlay based on current weather code
+- **Odisha Quick-Select** — One-tap buttons for 38+ cities, towns, and district headquarters across Odisha
+- **City/Village Search** — Debounced autocomplete via Open-Meteo Geocoding API — covers every village, town, and city globally
 - **GPS Geolocation** — Auto-detect location with reverse geocoding fallback
 - **Unit Toggle** — °C / °F and km/h / mph
 - **Saved Favorites** — Persisted in localStorage
-- **Skeleton Loading** — Pulse animation placeholders during data fetch
+- **PWA Offline Support** — Service worker caches app shell for offline access
 - **Responsive** — Single-column on mobile, fluid multi-column on desktop
 
 ## Getting Started

@@ -1,0 +1,10 @@
+{
+  "name": "Aura Weather",
+  "short_name": "Aura",
+  "description": "Advanced weather app with glassmorphism UI, dynamic backgrounds, and interactive charts",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "orientation": "portrait-primary"
+}

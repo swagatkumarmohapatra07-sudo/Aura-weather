@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aura Weather</title>
+  <meta name="theme-color" content="#0a0a1a" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -12,6 +14,7 @@
 <body>
   <div id="app">
     <div class="bg-layer" id="bgLayer"></div>
+    <div class="weather-anim-layer" id="animLayer"></div>
 
     <!-- Nav -->
     <nav class="nav glass" id="nav">
@@ -23,7 +26,7 @@
         <div class="nav-center">
           <div class="search-wrap">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" class="search-input" id="searchInput" placeholder="Search city..." autocomplete="off" />
+            <input type="text" class="search-input" id="searchInput" placeholder="Search any village, town or city..." autocomplete="off" />
             <div class="search-dropdown" id="searchDropdown"></div>
           </div>
           <button class="btn-icon" id="gpsBtn" title="Use current location">
@@ -44,15 +47,27 @@
 
     <!-- Main -->
     <main class="main" id="main">
-      <!-- Skeleton -->
-      <div class="skeleton" id="skeleton">
-        <div class="sk-hero"><div class="sk-block sk-lg"></div><div class="sk-block sk-md"></div><div class="sk-block sk-sm"></div></div>
-        <div class="sk-grid">${Array(6).fill('<div class="sk-card"></div>').join('')}</div>
-        <div class="sk-chart"><div class="sk-block sk-xl"></div></div>
+      <!-- Animated Loading -->
+      <div class="loading-wrap" id="loadingWrap">
+        <div class="loading-scene">
+          <div class="loading-sun"></div>
+          <div class="loading-cloud c1"></div>
+          <div class="loading-cloud c2"></div>
+          <div class="loading-cloud c3"></div>
+          <div class="loading-rain"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="loading-text">Fetching Weather</div>
+        <div class="loading-dots"><span></span><span></span><span></span></div>
       </div>
 
       <!-- Content -->
       <div class="content" id="content" style="display:none">
+        <!-- Alerts -->
+        <div class="alerts-banner" id="alertsBanner"><span class="alert-icon">⚠️</span><span id="alertsText"></span></div>
+
+        <!-- Odisha Quick Select -->
+        <div class="odisha-strip" id="odishaStrip"></div>
+
         <!-- Hero -->
         <section class="hero glass" id="hero">
           <div class="hero-main">
@@ -69,7 +84,7 @@
               </div>
             </div>
             <div class="hero-condition" id="heroCondition">--</div>
-            <div class="hero-insight glass" id="heroInsight">
+            <div class="hero-insight" id="heroInsight">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="insight-icon"><path d="M12 16v-4"/><path d="M12 8h.01"/><circle cx="12" cy="12" r="10"/></svg>
               <span id="insightText">Loading AI insights...</span>
             </div>
@@ -82,10 +97,20 @@
           </div>
         </section>
 
+        <!-- Activity Scoring -->
+        <section class="activity-section glass" id="activitySection">
+          <h2 class="section-title">Best Time To</h2>
+          <div class="activity-pills" id="activityPills"></div>
+          <div class="best-time-result" id="bestTimeResult">
+            <div class="bst-score high" id="bstScore">--</div>
+            <div class="bst-info"><span class="bst-label" id="bstLabel">Best window</span><span class="bst-time" id="bstTime">--</span><span class="bst-meta" id="bstMeta">--</span></div>
+          </div>
+        </section>
+
         <!-- Metrics Grid -->
         <section class="metrics-grid" id="metricsGrid">
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg><span class="mc-title">Wind</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon blue"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg><span class="mc-title">Wind</span></div>
             <div class="wind-compass" id="windCompass">
               <svg viewBox="0 0 100 100" class="compass-svg">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="1"/>
@@ -99,11 +124,11 @@
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><path d="M12 2v20M2 12h20"/></svg><span class="mc-title">Humidity</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon blue"><path d="M12 2v20M2 12h20"/></svg><span class="mc-title">Humidity</span></div>
             <div class="ring-wrap">
               <svg viewBox="0 0 120 120" class="ring-svg">
                 <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="8"/>
-                <circle id="humidRing" cx="60" cy="60" r="50" fill="none" stroke="#60a5fa" stroke-width="8" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="157.08" transform="rotate(-90,60,60)"/>
+                <circle id="humidRing" cx="60" cy="60" r="50" fill="none" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="157.08" transform="rotate(-90,60,60)"/>
                 <text x="60" y="55" text-anchor="middle" font-size="22" font-weight="700" fill="currentColor" id="humidPct">--%</text>
                 <text x="60" y="72" text-anchor="middle" font-size="10" fill="currentColor" opacity=".5">Humidity</text>
               </svg>
@@ -111,7 +136,7 @@
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span class="mc-title">UV Index</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon red"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span class="mc-title">UV Index</span></div>
             <div class="uv-display" id="uvDisplay">
               <span class="uv-val" id="uvVal">--</span>
               <span class="uv-label" id="uvLabel">--</span>
@@ -120,7 +145,7 @@
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a6 6 0 0 1-6 6"/><path d="M18 17a4 4 0 0 1-8 0"/><path d="M21 12h-2a7 7 0 0 0-14 0H3"/></svg><span class="mc-title">Air Quality</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon red"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a6 6 0 0 1-6 6"/><path d="M18 17a4 4 0 0 1-8 0"/><path d="M21 12h-2a7 7 0 0 0-14 0H3"/></svg><span class="mc-title">Air Quality</span></div>
             <div class="aqi-wrap">
               <span class="aqi-val" id="aqiVal">--</span>
               <span class="aqi-label" id="aqiLabel">--</span>
@@ -129,21 +154,34 @@
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><path d="M12 2v20"/><path d="M2 12h20"/></svg><span class="mc-title">Pressure</span></div>
-            <div class="press-wrap"><span class="press-val" id="pressVal">--</span><span class="press-unit">hPa</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon blue"><path d="M12 2v20"/><path d="M2 12h20"/></svg><span class="mc-title">Pressure</span></div>
+            <div class="press-wrap">
+              <span class="press-val" id="pressVal">--</span><span class="press-unit">hPa</span>
+              <div class="press-trend" id="pressTrend"><span id="pressArrow">→</span><span id="pressDelta">--</span></div>
+              <canvas class="press-spark" id="pressSpark"></canvas>
+            </div>
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20a10 10 0 0 1-6-2"/><path d="M9 2a10 10 0 0 0 6 0"/><path d="M2 12h20"/></svg><span class="mc-title">Visibility</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon blue"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20a10 10 0 0 1-6-2"/><path d="M9 2a10 10 0 0 0 6 0"/><path d="M2 12h20"/></svg><span class="mc-title">Visibility</span></div>
             <div class="vis-wrap"><span class="vis-val" id="visVal">--</span><span class="vis-unit">km</span></div>
           </div>
 
           <div class="metric-card glass">
-            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/></svg><span class="mc-title">Sunrise / Sunset</span></div>
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon red"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/></svg><span class="mc-title">Sunrise / Sunset</span></div>
             <div class="ss-wrap">
               <div class="ss-row"><span class="ss-lbl">Sunrise</span><span class="ss-val" id="sunriseVal">--</span></div>
               <div class="ss-row"><span class="ss-lbl">Sunset</span><span class="ss-val" id="sunsetVal">--</span></div>
-              <svg viewBox="0 0 200 60" class="ss-arc"><path d="M10 55 Q100 5 190 55" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="2"/><circle id="sunDot" cx="100" cy="30" r="6" fill="#fbbf24"/></svg>
+              <svg viewBox="0 0 200 60" class="ss-arc"><path d="M10 55 Q100 5 190 55" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="2"/><circle id="sunDot" cx="100" cy="30" r="6" fill="#3b82f6"/></svg>
+            </div>
+          </div>
+
+          <div class="metric-card glass" id="moonCard">
+            <div class="mc-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mc-icon red"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="mc-title">Moon Phase</span></div>
+            <div class="moon-wrap">
+              <span class="moon-emoji" id="moonEmoji">🌕</span>
+              <span class="moon-info" id="moonInfo">--</span>
+              <span class="moon-sub" id="moonSub">--</span>
             </div>
           </div>
         </section>
@@ -162,9 +200,11 @@
           </section>
           <section class="section-chart glass">
             <div class="chart-tabs" id="chartTabs">
-              <button class="chart-tab active" data-chart="temp">Temperature</button>
+              <button class="chart-tab active" data-chart="temp">Temp</button>
               <button class="chart-tab" data-chart="rain">Rain</button>
               <button class="chart-tab" data-chart="wind">Wind</button>
+              <button class="chart-tab" data-chart="humidity">Humidity</button>
+              <button class="chart-tab" data-chart="uv">UV</button>
             </div>
             <canvas id="mainChart"></canvas>
           </section>
