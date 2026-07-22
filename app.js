@@ -227,7 +227,7 @@ async function fetchWeatherByCoords(lat, lon, city, country) {
 
     state.weather = wd; state.aqi = aqiData;
     processWeatherData(wd);
-    renderAll();
+    try { renderAll(); } catch(e) { console.warn('Render error, using demo:', e); useDemoData(lat, lon, city, country); return; }
     showLoading(false);
   } catch {
     useDemoData(lat, lon, city, country);
@@ -281,7 +281,7 @@ function useDemoData(lat, lon, city, country) {
   }
   processWeatherData(wd);
   state.weather = wd; state.aqi = null;
-  renderAll();
+  try { renderAll(); } catch(e) { console.warn('Demo render error:', e); }
   showLoading(false);
   const badge = document.createElement('div');
   badge.id = 'offlineBadge';
@@ -508,37 +508,44 @@ function renderWeekly() {
 let chartInstance = null;
 
 function renderChart(mode) {
-  state.chartMode = mode;
-  const labels = state.hourly.slice(0, 24).map(h => formatHour(h.time));
-  const unit = state.unit; let datasets = [];
-  const slice = state.hourly.slice(0, 24);
-  if (mode === 'temp') {
-    datasets = [
-      { label: `Temp (${unit === 'f' ? '°F' : '°C'})`, data: slice.map(h => h.temp), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,.15)', fill: true, tension: .3, pointRadius: 3 },
-      { label: `Feels (${unit === 'f' ? '°F' : '°C'})`, data: slice.map(h => h.feels), borderColor: '#3b82f6', backgroundColor: 'transparent', borderDash: [5,5], tension: .3, pointRadius: 2 }
-    ];
-  } else if (mode === 'rain') {
-    datasets = [{ label: 'Precip %', data: slice.map(h => h.precip), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3, pointRadius: 3 }];
-  } else if (mode === 'wind') {
-    datasets = [{ label: `Wind (${unit === 'f' ? 'mph' : 'km/h'})`, data: slice.map(h => h.wind), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,.15)', fill: true, tension: .3, pointRadius: 3 }];
-  } else if (mode === 'humidity') {
-    datasets = [{ label: 'Humidity %', data: slice.map(h => h.humidity), borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,.15)', fill: true, tension: .3, pointRadius: 3 }];
-  } else if (mode === 'uv') {
-    datasets = [{ label: 'UV Index', data: slice.map(h => h.uv), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.12)', fill: true, tension: .3, pointRadius: 3 }];
+  if (typeof Chart === 'undefined') {
+    document.getElementById('mainChart').style.display = 'none';
+    return;
   }
-  if (chartInstance) chartInstance.destroy();
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  chartInstance = new Chart(ctx, {
-    type: 'line', data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
-      scales: {
-        x: { ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } },
-        y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } }
-      }
+  document.getElementById('mainChart').style.display = 'block';
+  try {
+    state.chartMode = mode;
+    const labels = state.hourly.slice(0, 24).map(h => formatHour(h.time));
+    const unit = state.unit; let datasets = [];
+    const slice = state.hourly.slice(0, 24);
+    if (mode === 'temp') {
+      datasets = [
+        { label: `Temp (${unit === 'f' ? '°F' : '°C'})`, data: slice.map(h => h.temp), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,.15)', fill: true, tension: .3, pointRadius: 3 },
+        { label: `Feels (${unit === 'f' ? '°F' : '°C'})`, data: slice.map(h => h.feels), borderColor: '#3b82f6', backgroundColor: 'transparent', borderDash: [5,5], tension: .3, pointRadius: 2 }
+      ];
+    } else if (mode === 'rain') {
+      datasets = [{ label: 'Precip %', data: slice.map(h => h.precip), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3, pointRadius: 3 }];
+    } else if (mode === 'wind') {
+      datasets = [{ label: `Wind (${unit === 'f' ? 'mph' : 'km/h'})`, data: slice.map(h => h.wind), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,.15)', fill: true, tension: .3, pointRadius: 3 }];
+    } else if (mode === 'humidity') {
+      datasets = [{ label: 'Humidity %', data: slice.map(h => h.humidity), borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,.15)', fill: true, tension: .3, pointRadius: 3 }];
+    } else if (mode === 'uv') {
+      datasets = [{ label: 'UV Index', data: slice.map(h => h.uv), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.12)', fill: true, tension: .3, pointRadius: 3 }];
     }
-  });
+    if (chartInstance) chartInstance.destroy();
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line', data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } }
+        }
+      }
+    });
+  } catch {}
 }
 
 // ====== ACTIVITY SCORING ======
@@ -620,14 +627,14 @@ function init() {
   toggles.forEach(t => t.addEventListener('click', () => {
     toggles.forEach(x => x.classList.remove('active'));
     t.classList.add('active'); state.unit = t.dataset.unit;
-    if (state.weather) { processWeatherData(state.weather); renderAll(); }
+    if (state.weather) { processWeatherData(state.weather); try { renderAll(); } catch(e) {} }
   }));
 
   document.querySelectorAll('.chart-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      if (state.hourly) renderChart(tab.dataset.chart);
+      if (state.hourly) try { renderChart(tab.dataset.chart); } catch(e) {}
     });
   });
 
