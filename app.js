@@ -201,37 +201,30 @@ async function searchCity(query) {
   } catch { $('searchDropdown').innerHTML = '<div class="sd-item" style="color:var(--muted)">Error searching</div>'; }
 }
 
-// ====== MAIN FETCH ======
+// ====== MAIN FETCH (silent fallback) ======
 async function fetchWeatherByCoords(lat, lon, city, country) {
   state.coords = { lat, lon }; state.city = city; state.country = country;
   showLoading(true);
-
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility,is_day&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
-
+  let wd = null;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const weatherRes = await fetch(weatherUrl, { signal: controller.signal });
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,visibility,is_day&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,uv_index,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`, { signal: controller.signal });
     clearTimeout(timeout);
-
-    if (!weatherRes.ok) throw new Error(String(weatherRes.status));
-    const wd = await weatherRes.json();
-    if (!wd.current || !wd.hourly || !wd.daily) throw new Error('incomplete');
-
-    let aqiData = null;
-    try {
-      const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`;
-      const aqiRes = await fetch(aqiUrl);
-      if (aqiRes.ok) aqiData = await aqiRes.json();
-    } catch {}
-
-    state.weather = wd; state.aqi = aqiData;
-    processWeatherData(wd);
-    try { renderAll(); } catch(e) { console.warn('Render error, using demo:', e); useDemoData(lat, lon, city, country); return; }
-    showLoading(false);
-  } catch {
-    useDemoData(lat, lon, city, country);
-  }
+    if (weatherRes.ok) {
+      wd = await weatherRes.json();
+      if (!wd.current || !wd.hourly || !wd.daily) wd = null;
+    }
+  } catch {}
+  if (!wd) { useDemoData(lat, lon, city, country); return; }
+  try {
+    const aqiRes = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5,pm10,nitrogen_dioxide,ozone&timezone=auto`);
+    if (aqiRes.ok) state.aqi = await aqiRes.json();
+  } catch {}
+  state.weather = wd;
+  processWeatherData(wd);
+  try { renderAll(); } catch(e) { useDemoData(lat, lon, city, country); return; }
+  showLoading(false);
 }
 
 function useDemoData(lat, lon, city, country) {
